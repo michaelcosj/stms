@@ -3,7 +3,7 @@ package models
 import "time"
 
 type User struct {
-	Id         uint   `json:"id"`
+	ID         uint   `json:"id"`
 	Name       string `json:"name"`
 	Email      string `json:"email"`
 	Tasks      []Task `json:"tasks"`
@@ -12,7 +12,7 @@ type User struct {
 }
 
 type Task struct {
-	Id          uint   `json:"id"`
+	ID          uint   `json:"id"`
 	Name        string `json:"name"`
 	Priority    uint   `json:"priority"`
 	IsCompleted bool   `json:"is_completed"`

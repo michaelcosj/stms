@@ -34,9 +34,9 @@ func InitUserRepo() *users {
 }
 
 func (u *users) NewUser(user models.User) uint {
-	user.Id = uint(len(u.users)) + 1
+	user.ID = uint(len(u.users)) + 1
 	u.users = append(u.users, user)
-	return user.Id
+	return user.ID
 }
 
 func (u *users) GetUser(userId uint) (models.User, error) {
@@ -45,7 +45,7 @@ func (u *users) GetUser(userId uint) (models.User, error) {
 	}
 	user := u.users[userId-1]
 
-	if user.Id == 0 {
+	if user.ID == 0 {
 		return models.User{}, ErrUserNotFound
 	}
 
@@ -60,7 +60,7 @@ func (u *users) GetUserByEmail(userEmail string) (models.User, error) {
 		}
 	}
 
-	if user.Id == 0 {
+	if user.ID == 0 {
 		return models.User{}, ErrUserNotFound
 	}
 
@@ -68,7 +68,7 @@ func (u *users) GetUserByEmail(userEmail string) (models.User, error) {
 }
 
 func (u *users) UpdateUser(userId uint, user models.User) error {
-	if userId >= uint(len(u.users)) || u.users[userId-1].Id == 0 {
+	if userId >= uint(len(u.users)) || u.users[userId-1].ID == 0 {
 		return ErrUserNotFound
 	}
 
@@ -87,10 +87,10 @@ func (u *users) AddTask(userId uint, task models.Task) (uint, error) {
 		return 0, err
 	}
 
-	task.Id = uint(len(user.Tasks))
+	task.ID = uint(len(user.Tasks))
 	u.users[userId-1].Tasks = append(user.Tasks, task)
 
-	return task.Id, nil
+	return task.ID, nil
 }
 
 func (u *users) GetTasks(userId uint) ([]models.Task, error) {
@@ -108,12 +108,12 @@ func (u *users) UpdateTask(userId uint, taskId uint, task models.Task) error {
 		return err
 	}
 
-	if taskId >= uint(len(user.Tasks)) || user.Tasks[taskId-1].Id == 0 {
+	if taskId >= uint(len(user.Tasks)) || user.Tasks[taskId-1].ID == 0 {
 		return ErrTaskNotFound
 	}
 
 	user.Tasks[taskId-1] = task
-	return u.UpdateUser(user.Id, user)
+	return u.UpdateUser(user.ID, user)
 }
 
 func (u *users) DeleteTask(userId uint, taskId uint) error {

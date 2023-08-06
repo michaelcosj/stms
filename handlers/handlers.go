@@ -27,19 +27,19 @@ type response struct {
 	Data   map[string]interface{} `json:"data"`
 }
 
-func newResponseSuccess(data map[string]interface{}) response {
+func newSuccessResponse(data map[string]interface{}) response {
 	return response{Status: "success", Data: data}
 }
 
-func newResponseFail(data map[string]interface{}) response {
+func newFailResponse(data map[string]interface{}) response {
 	return response{Status: "fail", Data: data}
 }
 
-type responseError struct {
+type errorResponse struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
 }
 
-func newResponseError(message string) responseError {
-	return responseError{Status: "error", Message: message}
+func newErrorResponse(message string) errorResponse {
+	return errorResponse{Status: "error", Message: message}
 }
