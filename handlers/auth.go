@@ -56,7 +56,7 @@ func (h *handler) Register(c echo.Context) error {
 	}
 
 	if _, err := h.userRepo.GetUserByEmail(req.Email); err != repository.ErrUserNotFound {
-		data := map[string]interface{}{"detail": "user already exists"}
+		data := map[string]interface{}{"detail": fmt.Sprintf("error registering user: %s", err.Error())}
 		return c.JSON(http.StatusBadRequest, newFailResponse(data))
 	}
 
@@ -66,10 +66,21 @@ func (h *handler) Register(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, newErrorResponse(errMsg))
 	}
 
-	user := models.User{Username: req.Username, Email: req.Email, Password: string(hashedPassword)}
-	h.userRepo.NewUser(user)
+	user := models.User{
+		Username: req.Username,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+	}
 
+	id, err := h.userRepo.NewUser(user)
+	if err != nil {
+		data := map[string]interface{}{"detail": "error registering user: %s", "message": err.Error()}
+		return c.JSON(http.StatusBadRequest, newFailResponse(data))
+	}
+
+	user.ID = id
 	data := map[string]interface{}{"user": user}
+
 	return c.JSON(http.StatusCreated, newSuccessResponse(data))
 }
 
@@ -106,4 +117,8 @@ func (h *handler) Login(c echo.Context) error {
 
 	data := map[string]interface{}{"user": user, "token": token}
 	return c.JSON(http.StatusOK, newSuccessResponse(data))
+}
+
+func (h *handler) VerifyUser(c echo.Context) error {
+	return nil
 }

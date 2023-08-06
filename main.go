@@ -12,5 +12,7 @@ func main() {
 		log.Fatal("error loading env file")
 	}
 
-	cmd.Run()
+	if err := cmd.Run(); err != nil {
+		log.Fatal(err)
+	}
 }

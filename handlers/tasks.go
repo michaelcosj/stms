@@ -66,7 +66,7 @@ func (h *handler) UpdateTask(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, newFailResponse(data))
 	}
 
-	if err := h.userRepo.UpdateTask(userId, uint(taskId), *newTask); err != nil {
+	if err := h.userRepo.UpdateTask(userId, int64(taskId), *newTask); err != nil {
 		data := map[string]interface{}{"detail": err.Error()}
 		return c.JSON(http.StatusNotFound, newFailResponse(data))
 	}
@@ -86,7 +86,7 @@ func (h *handler) RemoveTask(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, newFailResponse(data))
 	}
 
-	if err := h.userRepo.DeleteTask(userId, uint(taskId)); err != nil {
+	if err := h.userRepo.DeleteTask(userId, int64(taskId)); err != nil {
 		data := map[string]interface{}{"detail": err.Error()}
 		return c.JSON(http.StatusNotFound, newFailResponse(data))
 	}

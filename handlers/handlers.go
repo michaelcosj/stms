@@ -18,6 +18,7 @@ type Handler interface {
 	UpdateTask(c echo.Context) error
 	GetTasks(c echo.Context) error
 	RemoveTask(c echo.Context) error
+	VerifyUser(c echo.Context) error
 }
 
 func InitHandler(userRepo repository.UserRepo) Handler {
@@ -46,7 +47,7 @@ func newErrorResponse(message string) errorResponse {
 	return errorResponse{Status: "error", Message: message}
 }
 
-func getUserIdFromContext(c echo.Context) uint {
+func getUserIdFromContext(c echo.Context) int64 {
 	token := c.Get("user").(*jwt.Token)
 	return token.Claims.(*framework.CustomClaims).UserID
 }

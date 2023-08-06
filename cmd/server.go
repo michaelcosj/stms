@@ -1,61 +1,45 @@
 package cmd
 
 import (
-	"log"
+	"database/sql"
+	"fmt"
 	"os"
 
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/labstack/echo-jwt/v4"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/michaelcosj/stms/framework"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/michaelcosj/stms/handlers"
+	"github.com/michaelcosj/stms/migrations"
 	"github.com/michaelcosj/stms/repository"
+	"github.com/michaelcosj/stms/router"
 )
 
-func Run() {
-	e := echo.New()
+func Run() error {
+	// Setup database
+	fmt.Println("INITIALISING DATABASE")
 
-	// Setup logging
-	logFile, err := os.Create("log")
+	dbFile := os.Getenv("DB_FILE_PATH")
+	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
-		log.Fatal("failed to create log file")
+		return fmt.Errorf("error initialising database: %v", err)
 	}
-	defer logFile.Close()
+	defer db.Close()
 
-	logFmt := "time:${time_custom}, method:${method}, uri:${uri}," +
-		" status:${status}\nlatency:${latency_human} error:${error}\n\n"
+	// Run migrations
+	fmt.Println("RUNNING DATABASE MIGRATIONS")
 
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format:           logFmt,
-		Output:           logFile,
-		CustomTimeFormat: "2006-01-02 15:04:05",
-	}))
+	if err := migrations.RunMigrations(db); err != nil {
+		return fmt.Errorf("error migrating database: %v", err)
+	}
 
 	// Initialise repository and handlers
-	userRepo := repository.InitUserRepo()
+	userRepo := repository.InitUserRepo(db)
 	handler := handlers.InitHandler(userRepo)
 
-	// Auth endpoints
-	e.POST("/login", handler.Login)
-	e.POST("/register", handler.Register)
-
-	// Task endpoints
-	t := e.Group("/users")
-
-	// jwt auth middleware
-	jwtMiddlewareCfg := echojwt.Config{
-		NewClaimsFunc: func(c echo.Context) jwt.Claims {
-			return new(framework.CustomClaims)
-		},
-		SigningKey: []byte(os.Getenv("ACCESS_TOKEN_SECRET")),
+	// Run the router
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "6969"
 	}
-	t.Use(echojwt.WithConfig(jwtMiddlewareCfg))
 
-	t.GET("/tasks", handler.GetTasks)
-	t.POST("/tasks", handler.AddTask)
-	t.PATCH("/tasks/:taskId", handler.UpdateTask)
-	t.DELETE("/tasks/:taskId", handler.RemoveTask)
-
-	e.Logger.Fatal(e.Start(":6969"))
+	router := router.InitRouter(handler)
+	return router.Run(port)
 }

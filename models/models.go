@@ -3,7 +3,7 @@ package models
 import "time"
 
 type User struct {
-	ID         uint   `json:"id"`
+	ID         int64  `json:"id"`
 	Email      string `json:"email"`
 	Username   string `json:"username"`
 	Password   string `json:"password"`
@@ -13,9 +13,9 @@ type User struct {
 }
 
 type Task struct {
-	ID          uint   `json:"id"`
+	ID          int64  `json:"id"`
 	Name        string `json:"name"`
-	Priority    uint   `json:"priority"`
+	Priority    int64  `json:"priority"`
 	IsCompleted bool   `json:"is_completed"`
 	Description string `json:"description"`
 
@@ -27,6 +27,6 @@ type Task struct {
 }
 
 type Tag struct {
-	ID   uint   `json:"id"`
+	ID   int64  `json:"id"`
 	Name string `json:"name"`
 }
