@@ -3,17 +3,15 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
-	"github.com/michaelcosj/stms/framework"
 	"github.com/michaelcosj/stms/models"
 )
 
 func (h *handler) AddTask(c echo.Context) error {
-	token := c.Get("user").(*jwt.Token)
-	userId := token.Claims.(*framework.CustomClaims).UserID
+	userId := getUserIdFromContext(c)
 
 	newTask := new(models.Task)
 	if err := c.Bind(newTask); err != nil {
@@ -39,8 +37,7 @@ func (h *handler) AddTask(c echo.Context) error {
 }
 
 func (h *handler) GetTasks(c echo.Context) error {
-	token := c.Get("user").(*jwt.Token)
-	userId := token.Claims.(*framework.CustomClaims).UserID
+	userId := getUserIdFromContext(c)
 
 	tasks, err := h.userRepo.GetTasks(userId)
 	if err != nil {
@@ -53,8 +50,7 @@ func (h *handler) GetTasks(c echo.Context) error {
 }
 
 func (h *handler) UpdateTask(c echo.Context) error {
-	token := c.Get("user").(*jwt.Token)
-	userId := token.Claims.(*framework.CustomClaims).UserID
+	userId := getUserIdFromContext(c)
 
 	newTask := new(models.Task)
 	if err := c.Bind(newTask); err != nil {
@@ -62,9 +58,15 @@ func (h *handler) UpdateTask(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, newErrorResponse(errMsg))
 	}
 
-	taskId := c.Param("taskId")
+	taskIdStr := c.Param("taskId")
+	taskId, err := strconv.Atoi(taskIdStr)
+	if err != nil {
+		detail := fmt.Sprintf("error parsing taskid %s request: %s", taskIdStr, err.Error())
+		data := map[string]interface{}{"detail": detail}
+		return c.JSON(http.StatusBadRequest, newFailResponse(data))
+	}
 
-	if err := h.userRepo.UpdateTask(userId, taskId, *newTask); err != nil {
+	if err := h.userRepo.UpdateTask(userId, uint(taskId), *newTask); err != nil {
 		data := map[string]interface{}{"detail": err.Error()}
 		return c.JSON(http.StatusNotFound, newFailResponse(data))
 	}
@@ -74,16 +76,21 @@ func (h *handler) UpdateTask(c echo.Context) error {
 }
 
 func (h *handler) RemoveTask(c echo.Context) error {
-	token := c.Get("user").(*jwt.Token)
-	userId := token.Claims.(*framework.CustomClaims).UserID
+	userId := getUserIdFromContext(c)
 
-	taskId := c.Param("taskId")
+	taskIdStr := c.Param("taskId")
+	taskId, err := strconv.Atoi(taskIdStr)
+	if err != nil {
+		detail := fmt.Sprintf("error parsing taskid %s request: %s", taskIdStr, err.Error())
+		data := map[string]interface{}{"detail": detail}
+		return c.JSON(http.StatusBadRequest, newFailResponse(data))
+	}
 
-	if err := h.userRepo.DeleteTask(userId, taskId); err != nil {
+	if err := h.userRepo.DeleteTask(userId, uint(taskId)); err != nil {
 		data := map[string]interface{}{"detail": err.Error()}
 		return c.JSON(http.StatusNotFound, newFailResponse(data))
 	}
 
-	data := map[string]interface{}{"message": "task " + taskId + " deleted successfully"}
+	data := map[string]interface{}{"message": "task " + taskIdStr + " deleted successfully"}
 	return c.JSON(http.StatusOK, newSuccessResponse(data))
 }

@@ -7,11 +7,11 @@ import (
 )
 
 type CustomClaims struct {
-	UserID string `json:"user_id"`
+	UserID uint `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
-func CreateJwtToken(userID string, secret string, expiry int) (string, error) {
+func CreateJwtToken(userID uint, secret string, expiry int) (string, error) {
 	expTime := time.Now().Add(time.Hour * time.Duration(expiry))
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &CustomClaims{

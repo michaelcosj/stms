@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
+	"github.com/michaelcosj/stms/framework"
 	"github.com/michaelcosj/stms/repository"
 )
 
@@ -42,4 +44,9 @@ type errorResponse struct {
 
 func newErrorResponse(message string) errorResponse {
 	return errorResponse{Status: "error", Message: message}
+}
+
+func getUserIdFromContext(c echo.Context) uint {
+	token := c.Get("user").(*jwt.Token)
+	return token.Claims.(*framework.CustomClaims).UserID
 }
