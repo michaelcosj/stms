@@ -42,10 +42,6 @@ func Run() {
 
 	// Task endpoints
 	t := e.Group("/users")
-	t.GET("/users/tasks", handler.GetTasks)
-	t.POST("/users/tasks", handler.AddTask)
-	t.PATCH("/users/tasks/:taskId", handler.UpdateTask)
-	t.DELETE("/users/tasks/:taskId", handler.RemoveTask)
 
 	// jwt auth middleware
 	jwtMiddlewareCfg := echojwt.Config{
@@ -55,6 +51,11 @@ func Run() {
 		SigningKey: []byte(os.Getenv("ACCESS_TOKEN_SECRET")),
 	}
 	t.Use(echojwt.WithConfig(jwtMiddlewareCfg))
+
+	t.GET("/tasks", handler.GetTasks)
+	t.POST("/tasks", handler.AddTask)
+	t.PATCH("/tasks/:taskId", handler.UpdateTask)
+	t.DELETE("/tasks/:taskId", handler.RemoveTask)
 
 	e.Logger.Fatal(e.Start(":6969"))
 }

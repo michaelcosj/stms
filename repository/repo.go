@@ -2,6 +2,8 @@ package repository
 
 import (
 	"fmt"
+
+	"github.com/google/uuid"
 	"github.com/michaelcosj/stms/models"
 )
 
@@ -11,89 +13,83 @@ var (
 )
 
 type users struct {
-	users []models.User
+	users map[string]models.User
 }
 
 type UserRepo interface {
 	// user management
-	NewUser(user models.User) uint
-	GetUser(userId uint) (models.User, error)
+	NewUser(user models.User) string
+	GetUser(userId string) (models.User, error)
 	GetUserByEmail(userEmail string) (models.User, error)
-	UpdateUser(userId uint, user models.User) error
-	DeleteUser(userId uint) error
+	UpdateUser(userId string, user models.User) error
+	DeleteUser(userId string) error
 
 	// task management
-	AddTask(userId uint, task models.Task) (uint, error)
-	GetTasks(userId uint) ([]models.Task, error)
-	UpdateTask(userId uint, taskId uint, task models.Task) error
-	DeleteTask(userId uint, taskId uint) error
+	AddTask(userId string, task models.Task) (string, error)
+	GetTasks(userId string) ([]models.Task, error)
+	UpdateTask(userId string, taskId string, task models.Task) error
+	DeleteTask(userId string, taskId string) error
 }
 
 func InitUserRepo() *users {
 	return new(users)
 }
 
-func (u *users) NewUser(user models.User) uint {
-	user.ID = uint(len(u.users)) + 1
-	u.users = append(u.users, user)
+func (u *users) NewUser(user models.User) string {
+	user.ID = uuid.New().String()
+	u.users[user.ID] = user
 	return user.ID
 }
 
-func (u *users) GetUser(userId uint) (models.User, error) {
-	if userId >= uint(len(u.users)) {
-		return models.User{}, ErrUserNotFound
-	}
-	user := u.users[userId-1]
-
-	if user.ID == 0 {
-		return models.User{}, ErrUserNotFound
-	}
-
-	return user, nil
-}
-
-func (u *users) GetUserByEmail(userEmail string) (models.User, error) {
-	user := models.User{}
-	for _, v := range u.users {
-		if v.Email == userEmail {
-			user = v
+func (u *users) GetUser(userId string) (models.User, error) {
+	for id, user := range u.users {
+		if userId == id {
+			return user, nil
 		}
 	}
 
-	if user.ID == 0 {
-		return models.User{}, ErrUserNotFound
-	}
-
-	return user, nil
+	return models.User{}, ErrUserNotFound
 }
 
-func (u *users) UpdateUser(userId uint, user models.User) error {
-	if userId >= uint(len(u.users)) || u.users[userId-1].ID == 0 {
-		return ErrUserNotFound
+func (u *users) GetUserByEmail(userEmail string) (models.User, error) {
+	for _, user := range u.users {
+		if user.Email == userEmail {
+			return user, nil
+		}
 	}
 
-	u.users[userId-1] = user
+	return models.User{}, ErrUserNotFound
+
+}
+
+func (u *users) UpdateUser(userId string, user models.User) error {
+	user, err := u.GetUser(userId)
+	if err != nil {
+		return err
+	}
+	u.users[userId] = user
 
 	return nil
 }
 
-func (u *users) DeleteUser(userId uint) error {
+func (u *users) DeleteUser(userId string) error {
 	return u.UpdateUser(userId, models.User{})
 }
 
-func (u *users) AddTask(userId uint, task models.Task) (uint, error) {
+func (u *users) AddTask(userId string, task models.Task) (string, error) {
 	user, err := u.GetUser(userId)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 
-	task.ID = uint(len(user.Tasks))
-	u.users[userId-1].Tasks = append(user.Tasks, task)
+	task.ID = uuid.New().String()
+	user.Tasks = append(user.Tasks, task)
+	u.users[userId] = user
 
 	return task.ID, nil
 }
 
-func (u *users) GetTasks(userId uint) ([]models.Task, error) {
+func (u *users) GetTasks(userId string) ([]models.Task, error) {
 	user, err := u.GetUser(userId)
 	if err != nil {
 		return []models.Task{}, err
@@ -102,20 +98,25 @@ func (u *users) GetTasks(userId uint) ([]models.Task, error) {
 	return user.Tasks, nil
 }
 
-func (u *users) UpdateTask(userId uint, taskId uint, task models.Task) error {
+func (u *users) UpdateTask(userId string, taskId string, task models.Task) error {
 	user, err := u.GetUser(userId)
 	if err != nil {
 		return err
 	}
 
-	if taskId >= uint(len(user.Tasks)) || user.Tasks[taskId-1].ID == 0 {
-		return ErrTaskNotFound
+	for k, t := range user.Tasks {
+		if t.ID == taskId {
+			task.ID = taskId
+			user.Tasks[k] = task
+			u.users[userId] = user
+			return nil
+		}
+
 	}
 
-	user.Tasks[taskId-1] = task
-	return u.UpdateUser(user.ID, user)
+	return ErrTaskNotFound
 }
 
-func (u *users) DeleteTask(userId uint, taskId uint) error {
+func (u *users) DeleteTask(userId string, taskId string) error {
 	return u.UpdateTask(userId, taskId, models.Task{})
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/michaelcosj/stms/framework"
 	"github.com/michaelcosj/stms/models"
 	"github.com/michaelcosj/stms/repository"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type registerRequest struct {
@@ -45,11 +46,12 @@ type loginRequest struct {
 func (h *handler) Register(c echo.Context) error {
 	req := new(registerRequest)
 	if err := c.Bind(req); err != nil {
-		errMsg := (fmt.Sprintf("error handling request: %s", err.Error()))
+		errMsg := fmt.Sprintf("error handling request: %s", err.Error())
 		return c.JSON(http.StatusInternalServerError, newErrorResponse(errMsg))
 	}
 
 	if data, ok := validateRegisterRequest(*req); !ok {
+		data["detail"] = "invalid data"
 		return c.JSON(http.StatusBadRequest, newFailResponse(data))
 	}
 
@@ -58,7 +60,13 @@ func (h *handler) Register(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, newFailResponse(data))
 	}
 
-	user := models.User{Name: req.Username, Email: req.Email, Password: req.Password}
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		errMsg := fmt.Sprintf("error handling request: %s", err.Error())
+		return c.JSON(http.StatusInternalServerError, newErrorResponse(errMsg))
+	}
+
+	user := models.User{Username: req.Username, Email: req.Email, Password: string(hashedPassword)}
 	h.userRepo.NewUser(user)
 
 	data := map[string]interface{}{"user": user}
@@ -78,7 +86,7 @@ func (h *handler) Login(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, newFailResponse(data))
 	}
 
-	if user.Password != req.Password {
+	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) != nil {
 		data := map[string]interface{}{"detail": "incorrect email or password"}
 		return c.JSON(http.StatusNotFound, newFailResponse(data))
 	}
