@@ -46,6 +46,7 @@ func (r *router) Run(port string) error {
 	// Auth endpoints
 	e.POST("/login", r.handler.Login)
 	e.POST("/register", r.handler.Register)
+	e.POST("/verify", r.handler.VerifyUser)
 
 	// Task endpoints
 	t := e.Group("/users")

@@ -1,11 +1,11 @@
 package cmd
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/michaelcosj/stms/framework/cache"
+	"github.com/michaelcosj/stms/framework/database"
 	"github.com/michaelcosj/stms/handlers"
 	"github.com/michaelcosj/stms/migrations"
 	"github.com/michaelcosj/stms/repository"
@@ -14,28 +14,26 @@ import (
 
 func Run() error {
 	// Setup database
-	fmt.Println("INITIALISING DATABASE")
-
-	dbFile := os.Getenv("DB_FILE_PATH")
-	db, err := sql.Open("sqlite3", dbFile)
+	db, err := database.InitDb(os.Getenv("DB_FILE_PATH"))
 	if err != nil {
 		return fmt.Errorf("error initialising database: %v", err)
 	}
 	defer db.Close()
 
 	// Run migrations
-	fmt.Println("RUNNING DATABASE MIGRATIONS")
-
 	if err := migrations.RunMigrations(db); err != nil {
 		return fmt.Errorf("error migrating database: %v", err)
 	}
 
+	// setup cache
+	cache := cache.InitCache(os.Getenv("REDIS_PORT"))
+
 	// Initialise repository and handlers
 	userRepo := repository.InitUserRepo(db)
-	handler := handlers.InitHandler(userRepo)
+	handler := handlers.InitHandler(userRepo, cache)
 
 	// Run the router
-	port := os.Getenv("PORT")
+	port := os.Getenv("SERVER_PORT")
 	if port == "" {
 		port = "6969"
 	}

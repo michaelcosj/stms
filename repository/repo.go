@@ -20,7 +20,7 @@ type userRepo struct {
 type UserRepo interface {
 	// user management
 	NewUser(user models.User) (int64, error)
-	GetUser(userId int64) (models.User, error)
+	GetUserByID(userId int64) (models.User, error)
 	GetUserByEmail(userEmail string) (models.User, error)
 	UpdateUser(userId int64, user models.User) error
 	DeleteUser(userId int64) error
@@ -36,8 +36,8 @@ func InitUserRepo(db *sql.DB) *userRepo {
 	return &userRepo{db}
 }
 
-func (u *userRepo) NewUser(user models.User) (int64, error) {
-	res, err := u.db.Exec(insertUserCommand, user.Email, user.Username, user.Password, time.Now().Unix())
+func (r *userRepo) NewUser(user models.User) (int64, error) {
+	res, err := r.db.Exec(insertUserCommand, user.Email, user.Username, user.Password, time.Now().Unix())
 	if err != nil {
 		return 0, fmt.Errorf("error inserting user to database: %v", err)
 	}
@@ -50,7 +50,7 @@ func (u *userRepo) NewUser(user models.User) (int64, error) {
 	return id, nil
 }
 
-func (r *userRepo) GetUser(userId int64) (models.User, error) {
+func (r *userRepo) GetUserByID(userId int64) (models.User, error) {
 	row := r.db.QueryRow(selectUserByIDCommand, userId)
 
 	var user models.User
@@ -58,22 +58,12 @@ func (r *userRepo) GetUser(userId int64) (models.User, error) {
 		return models.User{}, fmt.Errorf("error getting user from database: %v", err)
 	}
 
-	tRow, err := r.db.Query(selectUserByIDCommand, userId)
+	tasks, err := r.GetTasks(user.ID)
 	if err != nil {
 		return models.User{}, fmt.Errorf("error getting user from database: %v", err)
 	}
 
-	for tRow.Next() {
-		var t models.Task
-		if err := row.Scan(&t.ID, &t.Name, &t.Priority, &t.IsCompleted, &t.Description, &t.TimeDue, &t.TimeCreated, &t.TimeCompleted); err != nil {
-			if err == sql.ErrNoRows {
-				return user, nil
-			}
-			return models.User{}, fmt.Errorf("error getting user from database: %v", err)
-		}
-		user.Tasks = append(user.Tasks, t)
-	}
-
+	user.Tasks = tasks
 	return user, nil
 }
 
@@ -88,40 +78,28 @@ func (r *userRepo) GetUserByEmail(userEmail string) (models.User, error) {
 		return models.User{}, fmt.Errorf("error getting user from database: %v", err)
 	}
 
-	tRow, err := r.db.Query(selectUserByIDCommand, user.ID)
+	tasks, err := r.GetTasks(user.ID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return user, nil
-		}
-		return models.User{}, fmt.Errorf("error getting user tasks from database: %v", err)
+		return models.User{}, fmt.Errorf("error getting user from database: %v", err)
 	}
 
-	for tRow.Next() {
-		var t models.Task
-		if err := row.Scan(&t.ID, &t.Name, &t.Priority, &t.IsCompleted, &t.Description, &t.TimeDue, &t.TimeCreated, &t.TimeCompleted); err != nil {
-			if err == sql.ErrNoRows {
-				return user, nil
-			}
-			return models.User{}, fmt.Errorf("error getting user task data from database: %v", err)
-		}
-		user.Tasks = append(user.Tasks, t)
+	if len(tasks) > 0 {
+		user.Tasks = tasks
 	}
 
 	return user, nil
 }
 
-func (u *userRepo) UpdateUser(userId int64, user models.User) error {
-	// user, err := u.GetUser(userId)
-	// if err != nil {
-	// 	return err
-	// }
-	// u.users[userId] = user
+func (r *userRepo) UpdateUser(userId int64, user models.User) error {
+	if _, err := r.db.Exec(updateUserCommand, user.Username, user.IsVerified, userId); err != nil {
+		return fmt.Errorf("error updating user: %v", err)
+	}
 
 	return nil
 }
 
-func (u *userRepo) DeleteUser(userId int64) error {
-	return u.UpdateUser(userId, models.User{})
+func (r *userRepo) DeleteUser(userId int64) error {
+	return r.UpdateUser(userId, models.User{})
 }
 
 func (u *userRepo) AddTask(userId int64, task models.Task) (int64, error) {
@@ -138,14 +116,24 @@ func (u *userRepo) AddTask(userId int64, task models.Task) (int64, error) {
 	return 0, nil
 }
 
-func (u *userRepo) GetTasks(userId int64) ([]models.Task, error) {
-	// user, err := u.GetUser(userId)
-	// if err != nil {
-	// 	return []models.Task{}, err
-	// }
+func (r *userRepo) GetTasks(userId int64) ([]models.Task, error) {
+	var tasks []models.Task
 
-	// return user.Tasks, nil
-	return nil, nil
+	row, err := r.db.Query(selectUserTasksCommand, userId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting tasks from database: %v", err)
+	}
+
+	for row.Next() {
+		var t models.Task
+		if err := row.Scan(&t.ID, &t.Name, &t.Priority, &t.IsCompleted, &t.Description, &t.TimeDue, &t.TimeCreated, &t.TimeCompleted); err != nil {
+			return nil, fmt.Errorf("error getting user from database: %v", err)
+		}
+		fmt.Println("here 334443343")
+		tasks = append(tasks, t)
+	}
+
+	return tasks, nil
 }
 
 func (u *userRepo) UpdateTask(userId int64, taskId int64, task models.Task) error {

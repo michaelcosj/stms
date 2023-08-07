@@ -16,12 +16,12 @@ func (h *handler) AddTask(c echo.Context) error {
 	newTask := new(models.Task)
 	if err := c.Bind(newTask); err != nil {
 		errMsg := fmt.Sprintf("error handling request: %s", err.Error())
-		return c.JSON(http.StatusInternalServerError, newErrorResponse(errMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp(errMsg))
 	}
 
 	if len(newTask.Name) < 3 || len(newTask.Description) < 3 {
 		data := map[string]interface{}{"detail": "invalid data", "name": "invalid name", "description": "invalid description"}
-		return c.JSON(http.StatusBadRequest, newFailResponse(data))
+		return c.JSON(http.StatusBadRequest, newFailResp(data))
 	}
 
 	newTask.IsCompleted = false
@@ -29,11 +29,11 @@ func (h *handler) AddTask(c echo.Context) error {
 
 	if _, err := h.userRepo.AddTask(userId, *newTask); err != nil {
 		data := map[string]interface{}{"detail": err.Error()}
-		return c.JSON(http.StatusNotFound, newFailResponse(data))
+		return c.JSON(http.StatusNotFound, newFailResp(data))
 	}
 
 	data := map[string]interface{}{"task": newTask}
-	return c.JSON(http.StatusOK, newSuccessResponse(data))
+	return c.JSON(http.StatusOK, newSuccessResp(data))
 }
 
 func (h *handler) GetTasks(c echo.Context) error {
@@ -42,11 +42,11 @@ func (h *handler) GetTasks(c echo.Context) error {
 	tasks, err := h.userRepo.GetTasks(userId)
 	if err != nil {
 		data := map[string]interface{}{"detail": err.Error()}
-		return c.JSON(http.StatusNotFound, newFailResponse(data))
+		return c.JSON(http.StatusNotFound, newFailResp(data))
 	}
 
 	data := map[string]interface{}{"tasks": tasks}
-	return c.JSON(http.StatusOK, newSuccessResponse(data))
+	return c.JSON(http.StatusOK, newSuccessResp(data))
 }
 
 func (h *handler) UpdateTask(c echo.Context) error {
@@ -55,7 +55,7 @@ func (h *handler) UpdateTask(c echo.Context) error {
 	newTask := new(models.Task)
 	if err := c.Bind(newTask); err != nil {
 		errMsg := fmt.Sprintf("error handling request: %s", err.Error())
-		return c.JSON(http.StatusInternalServerError, newErrorResponse(errMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp(errMsg))
 	}
 
 	taskIdStr := c.Param("taskId")
@@ -63,16 +63,16 @@ func (h *handler) UpdateTask(c echo.Context) error {
 	if err != nil {
 		detail := fmt.Sprintf("error parsing taskid %s request: %s", taskIdStr, err.Error())
 		data := map[string]interface{}{"detail": detail}
-		return c.JSON(http.StatusBadRequest, newFailResponse(data))
+		return c.JSON(http.StatusBadRequest, newFailResp(data))
 	}
 
 	if err := h.userRepo.UpdateTask(userId, int64(taskId), *newTask); err != nil {
 		data := map[string]interface{}{"detail": err.Error()}
-		return c.JSON(http.StatusNotFound, newFailResponse(data))
+		return c.JSON(http.StatusNotFound, newFailResp(data))
 	}
 
 	data := map[string]interface{}{"task": newTask}
-	return c.JSON(http.StatusOK, newSuccessResponse(data))
+	return c.JSON(http.StatusOK, newSuccessResp(data))
 }
 
 func (h *handler) RemoveTask(c echo.Context) error {
@@ -83,14 +83,14 @@ func (h *handler) RemoveTask(c echo.Context) error {
 	if err != nil {
 		detail := fmt.Sprintf("error parsing taskid %s request: %s", taskIdStr, err.Error())
 		data := map[string]interface{}{"detail": detail}
-		return c.JSON(http.StatusBadRequest, newFailResponse(data))
+		return c.JSON(http.StatusBadRequest, newFailResp(data))
 	}
 
 	if err := h.userRepo.DeleteTask(userId, int64(taskId)); err != nil {
 		data := map[string]interface{}{"detail": err.Error()}
-		return c.JSON(http.StatusNotFound, newFailResponse(data))
+		return c.JSON(http.StatusNotFound, newFailResp(data))
 	}
 
 	data := map[string]interface{}{"message": "task " + taskIdStr + " deleted successfully"}
-	return c.JSON(http.StatusOK, newSuccessResponse(data))
+	return c.JSON(http.StatusOK, newSuccessResp(data))
 }

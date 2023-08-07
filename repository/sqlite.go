@@ -18,9 +18,15 @@ const (
     WHERE email = ?
   `
 
-	selectUserTasks = `
+	selectUserTasksCommand = `
     SELECT * 
     FROM tasks
     WHERE user_id = ?
+  `
+
+	updateUserCommand = `
+    UPDATE users SET 
+    username = ?, is_verified = ?
+    WHERE id = ?
   `
 )
