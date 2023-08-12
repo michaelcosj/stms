@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/michaelcosj/stms/app"
 	"github.com/michaelcosj/stms/framework/cache"
 	"github.com/michaelcosj/stms/framework/database"
 	"github.com/michaelcosj/stms/handlers"
@@ -28,9 +29,10 @@ func Run() error {
 	// setup cache
 	cache := cache.InitCache(os.Getenv("REDIS_PORT"))
 
-	// Initialise repository and handlers
-	userRepo := repository.InitUserRepo(db)
-	handler := handlers.InitHandler(userRepo, cache)
+	// Initialise repository, service and handler
+	repo := repository.InitRepo(db)
+	service := app.InitAppService(repo, cache)
+	handler := handlers.InitHandler(service)
 
 	// Run the router
 	port := os.Getenv("SERVER_PORT")

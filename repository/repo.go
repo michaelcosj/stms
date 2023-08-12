@@ -13,18 +13,18 @@ var (
 	ErrTaskNotFound = fmt.Errorf("task not found")
 )
 
-type userRepo struct {
+type repo struct {
 	db *sql.DB
 }
 
-type UserRepo interface {
+type Repo interface {
 	// user management
 	NewUser(user models.User) (int64, error)
 	GetUserByID(userId int64) (models.User, error)
 	GetUserByEmail(userEmail string) (models.User, error)
 	UpdateUser(userId int64, user models.User) error
 	DeleteUser(userId int64) error
-	CheckUserEmailExists(userEmail string) bool
+	UserEmailExists(userEmail string) bool
 	CheckUserIDExists(userId int64) bool
 
 	// task management
@@ -34,11 +34,11 @@ type UserRepo interface {
 	DeleteTask(taskId int64) error
 }
 
-func InitUserRepo(db *sql.DB) *userRepo {
-	return &userRepo{db}
+func InitRepo(db *sql.DB) *repo {
+	return &repo{db}
 }
 
-func (r *userRepo) NewUser(user models.User) (int64, error) {
+func (r *repo) NewUser(user models.User) (int64, error) {
 	res, err := r.db.Exec(insertUserStmt, user.Email, user.Username, user.Password, time.Now().Unix())
 	if err != nil {
 		return 0, fmt.Errorf("error inserting user to database: %v", err)
@@ -52,7 +52,7 @@ func (r *userRepo) NewUser(user models.User) (int64, error) {
 	return id, nil
 }
 
-func (r *userRepo) GetUserByID(userId int64) (models.User, error) {
+func (r *repo) GetUserByID(userId int64) (models.User, error) {
 	var user models.User
 
 	row := r.db.QueryRow(selectUserByIDStmt, userId)
@@ -72,7 +72,7 @@ func (r *userRepo) GetUserByID(userId int64) (models.User, error) {
 	return user, nil
 }
 
-func (r *userRepo) GetUserByEmail(userEmail string) (models.User, error) {
+func (r *repo) GetUserByEmail(userEmail string) (models.User, error) {
 	var user models.User
 
 	row := r.db.QueryRow(selectUserByEmailStmt, userEmail)
@@ -95,7 +95,7 @@ func (r *userRepo) GetUserByEmail(userEmail string) (models.User, error) {
 	return user, nil
 }
 
-func (r *userRepo) UpdateUser(userId int64, user models.User) error {
+func (r *repo) UpdateUser(userId int64, user models.User) error {
 	if _, err := r.db.Exec(updateUserStmt, user.Username, user.IsVerified, userId); err != nil {
 		return fmt.Errorf("error updating user: %v", err)
 	}
@@ -103,7 +103,7 @@ func (r *userRepo) UpdateUser(userId int64, user models.User) error {
 	return nil
 }
 
-func (r *userRepo) DeleteUser(userId int64) error {
+func (r *repo) DeleteUser(userId int64) error {
 	_, err := r.db.Exec(deleteUserStmt, userId)
 	if err != nil {
 		return fmt.Errorf("error deleting user: %v", err)
@@ -112,17 +112,17 @@ func (r *userRepo) DeleteUser(userId int64) error {
 	return nil
 }
 
-func (r *userRepo) CheckUserEmailExists(userEmail string) bool {
+func (r *repo) UserEmailExists(userEmail string) bool {
 	_, err := r.GetUserByEmail(userEmail)
 	return !(err == ErrUserNotFound)
 }
 
-func (r *userRepo) CheckUserIDExists(userId int64) bool {
+func (r *repo) CheckUserIDExists(userId int64) bool {
 	_, err := r.GetUserByID(userId)
 	return !(err == ErrUserNotFound)
 }
 
-func (r *userRepo) AddTask(userId int64, t models.Task) (int64, error) {
+func (r *repo) AddTask(userId int64, t models.Task) (int64, error) {
 	res, err := r.db.Exec(insertTaskStmt, t.Name, t.Tag, t.Priority, t.IsCompleted, t.Description, t.TimeDue, t.TimeCreated, userId)
 	if err != nil {
 		return 0, fmt.Errorf("error inserting task to database: %v", err)
@@ -136,7 +136,7 @@ func (r *userRepo) AddTask(userId int64, t models.Task) (int64, error) {
 	return task_id, nil
 }
 
-func (r *userRepo) GetTasks(userId int64) ([]models.Task, error) {
+func (r *repo) GetTasks(userId int64) ([]models.Task, error) {
 	var tasks []models.Task
 
 	row, err := r.db.Query(selectTasksStmt, userId)
@@ -159,7 +159,7 @@ func (r *userRepo) GetTasks(userId int64) ([]models.Task, error) {
 	return tasks, nil
 }
 
-func (r *userRepo) UpdateTask(id int64, t models.Task) error {
+func (r *repo) UpdateTask(id int64, t models.Task) error {
 	_, err := r.db.Exec(updateTaskStmt, t.Name, t.Priority, t.IsCompleted, t.Description, t.TimeDue, id)
 	if err != nil {
 		return fmt.Errorf("error updating task: %v", err)
@@ -169,7 +169,7 @@ func (r *userRepo) UpdateTask(id int64, t models.Task) error {
 }
 
 // TODO
-func (r *userRepo) DeleteTask(taskId int64) error {
+func (r *repo) DeleteTask(taskId int64) error {
 	_, err := r.db.Exec(deleteTaskStmt, taskId)
 	if err != nil {
 		return fmt.Errorf("error deleting task: %v", err)
