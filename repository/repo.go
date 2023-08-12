@@ -103,9 +103,13 @@ func (r *userRepo) UpdateUser(userId int64, user models.User) error {
 	return nil
 }
 
-// TODO
 func (r *userRepo) DeleteUser(userId int64) error {
-	return r.UpdateUser(userId, models.User{})
+	_, err := r.db.Exec(deleteUserStmt, userId)
+	if err != nil {
+		return fmt.Errorf("error deleting user: %v", err)
+	}
+
+	return nil
 }
 
 func (r *userRepo) CheckUserEmailExists(userEmail string) bool {

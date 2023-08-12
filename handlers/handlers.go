@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
@@ -69,8 +70,8 @@ func newFailResp(data map[string]interface{}) response {
 	return response{Status: "fail", Data: data}
 }
 
-func newErrResp(err error) errorResponse {
-	return errorResponse{Status: "error", Message: err.Error()}
+func newErrResp(message string, err error) errorResponse {
+	return errorResponse{Status: "error", Message: fmt.Sprintf("%s: %s", message, err)}
 }
 
 func getAuthUserId(c echo.Context) int64 {

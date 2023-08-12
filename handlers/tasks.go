@@ -17,8 +17,7 @@ func (h *handler) AddTask(c echo.Context) error {
 
 	t := new(models.Task)
 	if err := c.Bind(t); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp("error handling request", err))
 	}
 
 	// TODO: not sure how i'm to validate these
@@ -114,8 +113,7 @@ func (h *handler) UpdateTask(c echo.Context) error {
 
 	newTask := new(models.Task)
 	if err := c.Bind(newTask); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp("error handling request", err))
 	}
 
 	taskIdStr := c.Param("taskId")

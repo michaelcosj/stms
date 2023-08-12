@@ -22,8 +22,7 @@ func (h *handler) Register(c echo.Context) error {
 	data := make(map[string]interface{})
 
 	if err := c.Bind(req); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp("error handling request", err))
 	}
 
 	if data, ok := validateRegisterRequest(*req); !ok {
@@ -38,8 +37,7 @@ func (h *handler) Register(c echo.Context) error {
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp("error handling request", err))
 	}
 
 	user := models.User{
@@ -74,14 +72,12 @@ func (h *handler) StartVerification(c echo.Context) error {
 
 	code, err := framework.CreateOTP(4)
 	if err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp("error handling request", err))
 	}
 
 	expiry := time.Duration(1) * time.Hour
 	if err := h.cache.Set(ctx, code, user_email, expiry).Err(); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp("error handling request", err))
 	}
 
 	emailData := framework.EmailData{
@@ -90,11 +86,10 @@ func (h *handler) StartVerification(c echo.Context) error {
 	}
 
 	if err := framework.SendEmail(user_email, emailData); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp("error handling request", err))
 	}
 
-	data["detail"] = fmt.Sprintf("Verification email sent to %s. Expires in %d", user_email, expiry)
+	data["detail"] = fmt.Sprintf("code sent to email %s. Expires in %d", user_email, expiry)
 	return c.JSON(http.StatusOK, newSuccessResp(data))
 }
 
@@ -105,8 +100,7 @@ func (h *handler) VerifyUser(c echo.Context) error {
 	})
 
 	if err := c.Bind(req); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp("error handling request", err))
 	}
 
 	userIdStr, err := h.cache.Get(ctx, req.Code).Result()
@@ -116,14 +110,13 @@ func (h *handler) VerifyUser(c echo.Context) error {
 			data["detail"] = "verification code expired"
 			return c.JSON(http.StatusNotFound, newFailResp(data))
 		}
-		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp("error handling request", err))
 	}
 
 	userId, err := strconv.Atoi(userIdStr)
 	if err != nil {
-		c.Logger().Error(err.Error())
-		errMsg := fmt.Errorf("error parsing userId %s request: %v", userIdStr, err)
-		return c.JSON(http.StatusBadRequest, newErrResp(errMsg))
+		message := fmt.Sprintf("error parsing userId %s request", userIdStr)
+		return c.JSON(http.StatusBadRequest, newErrResp(message, err))
 	}
 
 	user, err := h.userRepo.GetUserByID(int64(userId))
@@ -140,9 +133,7 @@ func (h *handler) VerifyUser(c echo.Context) error {
 
 	user.IsVerified = true
 	if err := h.userRepo.UpdateUser(user.ID, user); err != nil {
-		c.Logger().Error(err.Error())
-		errMsg := fmt.Errorf("error updating user data: %v", err)
-		return c.JSON(http.StatusInternalServerError, newErrResp(errMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp("error updating user data", err))
 	}
 
 	data["user"] = user
@@ -154,8 +145,7 @@ func (h *handler) Login(c echo.Context) error {
 	data := make(map[string]interface{})
 
 	if err := c.Bind(req); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
+		return c.JSON(http.StatusInternalServerError, newErrResp("error handling request", err))
 	}
 
 	user, err := h.userRepo.GetUserByEmail(req.Email)
@@ -179,9 +169,7 @@ func (h *handler) Login(c echo.Context) error {
 
 	token, err := framework.CreateJwtToken(user.ID, secret, expiry)
 	if err != nil {
-		c.Logger().Error(err.Error())
-		errMsg := fmt.Errorf("error creating auth token: %v", err)
-		c.JSON(http.StatusInternalServerError, newErrResp(errMsg))
+		c.JSON(http.StatusInternalServerError, newErrResp("error creating auth token", err))
 	}
 
 	data["user"] = user

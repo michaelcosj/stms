@@ -3,6 +3,7 @@ package router
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	echojwt "github.com/labstack/echo-jwt/v4"
@@ -28,7 +29,7 @@ func (r *router) Run(port string) error {
 	e := echo.New()
 
 	// Setup logging
-	logFile, err := os.Create("log")
+	logFile, err := os.Create(fmt.Sprintf("./logs/%d_log", time.Now().Unix()))
 	if err != nil {
 		return fmt.Errorf("failed to create log file: %v", err)
 	}
