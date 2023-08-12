@@ -11,12 +11,9 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/michaelcosj/stms/framework"
 	"github.com/michaelcosj/stms/models"
-	"github.com/michaelcosj/stms/repository"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
-
-// TODO: Better error handling
 
 var ctx = context.Background()
 
@@ -25,7 +22,7 @@ func (h *handler) Register(c echo.Context) error {
 	data := make(map[string]interface{})
 
 	if err := c.Bind(req); err != nil {
-		c.Logger().Error(err)
+		c.Logger().Error(err.Error())
 		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
 	}
 
@@ -34,14 +31,14 @@ func (h *handler) Register(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, newFailResp(data))
 	}
 
-	if _, err := h.userRepo.GetUserByEmail(req.Email); err != repository.ErrUserNotFound {
-		data["detail"] = ErrUserAlreadyExists
+	if h.userRepo.CheckUserEmailExists(req.Email) {
+		data["detail"] = ErrUserAlreadyExistsMsg
 		return c.JSON(http.StatusBadRequest, newFailResp(data))
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.Logger().Error(err)
+		c.Logger().Error(err.Error())
 		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
 	}
 
@@ -53,7 +50,7 @@ func (h *handler) Register(c echo.Context) error {
 
 	id, err := h.userRepo.NewUser(user)
 	if err != nil {
-		c.Logger().Error(err)
+		c.Logger().Error(err.Error())
 		data["detail"] = ErrRegisteringUserMsg
 		return c.JSON(http.StatusBadRequest, newFailResp(data))
 	}
@@ -61,15 +58,29 @@ func (h *handler) Register(c echo.Context) error {
 	user.ID = id
 	data["user"] = user
 
-	code, err := framework.CreateOTP(6)
+	return c.JSON(http.StatusCreated, newSuccessResp(data))
+}
+
+func (h *handler) StartVerification(c echo.Context) error {
+	data := make(map[string]interface{})
+
+	user_email := c.QueryParam("email")
+	if !framework.IsValidEmail(user_email) {
+		data["email"] = "Invalid email"
+		data["detail"] = ErrValidatingRequestMsg
+		return c.JSON(http.StatusBadRequest, newFailResp(data))
+
+	}
+
+	code, err := framework.CreateOTP(4)
 	if err != nil {
-		c.Logger().Error(err)
+		c.Logger().Error(err.Error())
 		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
 	}
 
 	expiry := time.Duration(1) * time.Hour
-	if err := h.cache.Set(ctx, code, user.ID, expiry).Err(); err != nil {
-		c.Logger().Error(err)
+	if err := h.cache.Set(ctx, code, user_email, expiry).Err(); err != nil {
+		c.Logger().Error(err.Error())
 		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
 	}
 
@@ -78,12 +89,64 @@ func (h *handler) Register(c echo.Context) error {
 		Subject: "Email Verification",
 	}
 
-	if err := framework.SendEmail(user.Email, emailData); err != nil {
-		c.Logger().Error(err)
+	if err := framework.SendEmail(user_email, emailData); err != nil {
+		c.Logger().Error(err.Error())
 		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
 	}
 
-	return c.JSON(http.StatusCreated, newSuccessResp(data))
+	data["detail"] = fmt.Sprintf("Verification email sent to %s. Expires in %d", user_email, expiry)
+	return c.JSON(http.StatusOK, newSuccessResp(data))
+}
+
+func (h *handler) VerifyUser(c echo.Context) error {
+	data := make(map[string]interface{})
+	req := new(struct {
+		Code string `json:"code"`
+	})
+
+	if err := c.Bind(req); err != nil {
+		c.Logger().Error(err.Error())
+		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
+	}
+
+	userIdStr, err := h.cache.Get(ctx, req.Code).Result()
+	if err != nil {
+		c.Logger().Error(err.Error())
+		if err == redis.Nil {
+			data["detail"] = "verification code expired"
+			return c.JSON(http.StatusNotFound, newFailResp(data))
+		}
+		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
+	}
+
+	userId, err := strconv.Atoi(userIdStr)
+	if err != nil {
+		c.Logger().Error(err.Error())
+		errMsg := fmt.Errorf("error parsing userId %s request: %v", userIdStr, err)
+		return c.JSON(http.StatusBadRequest, newErrResp(errMsg))
+	}
+
+	user, err := h.userRepo.GetUserByID(int64(userId))
+	if err != nil {
+		c.Logger().Error(err.Error())
+		data["detail"] = ErrUserNotFoundMsg
+		return c.JSON(http.StatusNotFound, newFailResp(data))
+	}
+
+	if user.IsVerified {
+		data["detail"] = "user already verified"
+		return c.JSON(http.StatusBadRequest, newFailResp(data))
+	}
+
+	user.IsVerified = true
+	if err := h.userRepo.UpdateUser(user.ID, user); err != nil {
+		c.Logger().Error(err.Error())
+		errMsg := fmt.Errorf("error updating user data: %v", err)
+		return c.JSON(http.StatusInternalServerError, newErrResp(errMsg))
+	}
+
+	data["user"] = user
+	return c.JSON(http.StatusOK, newSuccessResp(data))
 }
 
 func (h *handler) Login(c echo.Context) error {
@@ -91,20 +154,19 @@ func (h *handler) Login(c echo.Context) error {
 	data := make(map[string]interface{})
 
 	if err := c.Bind(req); err != nil {
-		return c.JSON(
-			http.StatusInternalServerError,
-			newErrResp(("error handling request: " + err.Error())),
-		)
+		c.Logger().Error(err.Error())
+		return c.JSON(http.StatusInternalServerError, newErrResp(ErrHandlingRequestMsg))
 	}
 
 	user, err := h.userRepo.GetUserByEmail(req.Email)
 	if err != nil {
-		data["detail"] = "error finding user: " + err.Error()
+		c.Logger().Error(err.Error())
+		data["detail"] = ErrUserNotFoundMsg
 		return c.JSON(http.StatusNotFound, newFailResp(data))
 	}
 
 	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) != nil {
-		data["detail"] = "incorrect email or password"
+		data["detail"] = "invalid email or password"
 		return c.JSON(http.StatusNotFound, newFailResp(data))
 	}
 
@@ -117,67 +179,13 @@ func (h *handler) Login(c echo.Context) error {
 
 	token, err := framework.CreateJwtToken(user.ID, secret, expiry)
 	if err != nil {
-		c.JSON(
-			http.StatusInternalServerError,
-			newErrResp(("error creating auth token: " + err.Error())),
-		)
+		c.Logger().Error(err.Error())
+		errMsg := fmt.Errorf("error creating auth token: %v", err)
+		c.JSON(http.StatusInternalServerError, newErrResp(errMsg))
 	}
 
 	data["user"] = user
 	data["token"] = token
-	return c.JSON(http.StatusOK, newSuccessResp(data))
-}
 
-func (h *handler) VerifyUser(c echo.Context) error {
-	data := make(map[string]interface{})
-	req := new(struct {
-		Code string `json:"code"`
-	})
-
-	if err := c.Bind(req); err != nil {
-		return c.JSON(
-			http.StatusInternalServerError,
-			newErrResp(("error handling request: " + err.Error())),
-		)
-	}
-
-	userIdStr, err := h.cache.Get(ctx, req.Code).Result()
-	if err != nil {
-		if err == redis.Nil {
-			data["detail"] = "verification code expired: " + err.Error()
-			return c.JSON(http.StatusNotFound, newFailResp(data))
-		}
-
-		return c.JSON(
-			http.StatusInternalServerError,
-			newErrResp(("error handling request: " + err.Error())),
-		)
-	}
-
-	userId, err := strconv.Atoi(userIdStr)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, newErrResp(fmt.Sprintf("error parsing userId %s request: %s", userIdStr, err.Error())))
-
-	}
-
-	user, err := h.userRepo.GetUserByID(int64(userId))
-	if err != nil {
-		data["detail"] = "user not found: " + err.Error()
-		return c.JSON(http.StatusNotFound, newFailResp(data))
-	}
-
-	if user.IsVerified {
-		data["detail"] = "user already verified"
-		return c.JSON(http.StatusBadRequest, newFailResp(data))
-	}
-
-	user.IsVerified = true
-	user.Username = "John"
-
-	if err := h.userRepo.UpdateUser(user.ID, user); err != nil {
-		return c.JSON(http.StatusBadRequest, newErrResp("user not updated: "+err.Error()))
-	}
-
-	data["user"] = user
 	return c.JSON(http.StatusOK, newSuccessResp(data))
 }

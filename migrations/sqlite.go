@@ -7,44 +7,31 @@ import (
 )
 
 const (
+	// TODO: priority should be boolean (high and low)
+	// TODO: tags should be an enum (study, work, others)
 	migrateDbSchema = `
     CREATE TABLE IF NOT EXISTS users (
-      id              INTEGER PRIMARY KEY NOT NULL,
-      email           TEXT    NOT NULL UNIQUE,
-      username        TEXT    NOT NULL,
-      password        TEXT    NOT NULL,
-      is_verified     BOOLEAN NOT NULL DEFAULT 0,
-      time_created    INTEGER NOT NULL
+      user_id         INTEGER   PRIMARY KEY NOT NULL,
+      email           TEXT      NOT NULL UNIQUE,
+      username        TEXT      NOT NULL,
+      password        TEXT      NOT NULL,
+      is_verified     BOOLEAN   NOT NULL DEFAULT 0,
+      time_created    DATETIME  NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS tasks (
-      id              INTEGER NOT NULL,
-      name            TEXT    NOT NULL,
-      priority        INTEGER DEFAULT 0, 
-      is_completed    BOOLEAN DEFAULT 0,
-      description     TEXT    NOT NULL,
-      time_due        INTEGER NOT NULL,
-      time_created    INTEGER NOT NULL,
-      time_completed  INTEGER,
-      user_id         INTEGER NOT NULL REFERENCES users,
-      
-      PRIMARY KEY (id, user_id)
+      task_id         INTEGER   PRIMARY KEY NOT NULL,
+      name            TEXT      NOT NULL,
+      TAG             TEXT,
+      priority        BOOLEAN   DEFAULT 0, 
+      is_completed    BOOLEAN   DEFAULT 0,
+      description     TEXT      NOT NULL,
+      time_due        DATETIME  NOT NULL,
+      time_created    DATETIME  NOT NULL,
+      time_completed  DATETIME  NOT NULL DEFAULT 0,
+      user_id         INTEGER   NOT NULL REFERENCES users
     );
 
-    CREATE TABLE IF NOT EXISTS tags (
-      id    INTEGER NOT NULL,
-      name  TEXT    NOT NULL,
-      user_id       INTEGER NOT NULL REFERENCES users,
-      
-      PRIMARY KEY (id, user_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS tag_task_bridge (
-      tag_id    INTEGER NOT NULL REFERENCES tags,
-      task_id   INTEGER NOT NULL REFERENCES tasks,
-      
-      PRIMARY KEY (tag_id, task_id)
-    );
   `
 )
 

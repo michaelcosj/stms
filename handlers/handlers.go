@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"errors"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/michaelcosj/stms/framework"
@@ -23,12 +25,15 @@ type Handler interface {
 	VerifyUser(c echo.Context) error
 }
 
+// TODO: use [https://echo.labstack.com/docs/error-handling]
+
 var (
-	ErrHandlingRequestMsg   = "error handling request"
-	ErrValidatingRequestMsg = "error validating request"
-	ErrSigningInUserMsg     = "error signing in user"
-	ErrRegisteringUserMsg   = "error registering user"
-	ErrUserAlreadyExists    = "user already exists"
+	ErrHandlingRequestMsg   = errors.New("error handling request")
+	ErrValidatingRequestMsg = errors.New("error validating request")
+	ErrSigningInUserMsg     = errors.New("error signing in user")
+	ErrRegisteringUserMsg   = errors.New("error registering user")
+	ErrUserAlreadyExistsMsg = errors.New("user already exists")
+	ErrUserNotFoundMsg      = errors.New("user not found")
 )
 
 func InitHandler(userRepo repository.UserRepo, cache *redis.Client) Handler {
@@ -40,6 +45,22 @@ type response struct {
 	Data   map[string]interface{} `json:"data"`
 }
 
+type errorResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+type registerRequest struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type loginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 func newSuccessResp(data map[string]interface{}) response {
 	return response{Status: "success", Data: data}
 }
@@ -48,24 +69,13 @@ func newFailResp(data map[string]interface{}) response {
 	return response{Status: "fail", Data: data}
 }
 
-type errorResponse struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
+func newErrResp(err error) errorResponse {
+	return errorResponse{Status: "error", Message: err.Error()}
 }
 
-func newErrResp(message string) errorResponse {
-	return errorResponse{Status: "error", Message: message}
-}
-
-func getUserIdFromContext(c echo.Context) int64 {
+func getAuthUserId(c echo.Context) int64 {
 	token := c.Get("user").(*jwt.Token)
 	return token.Claims.(*framework.CustomClaims).UserID
-}
-
-type registerRequest struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
 }
 
 func validateRegisterRequest(r registerRequest) (map[string]interface{}, bool) {
@@ -88,9 +98,4 @@ func validateRegisterRequest(r registerRequest) (map[string]interface{}, bool) {
 	}
 
 	return data, isValid
-}
-
-type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
 }
