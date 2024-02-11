@@ -8,6 +8,7 @@ type EmailData struct {
 }
 
 func SendEmail(userEmail string, emailData EmailData) error {
+	// TODO: integrate a mailing service
 	fmt.Println(emailData)
 	return nil
 }
